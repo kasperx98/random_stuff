@@ -1,12 +1,12 @@
 -------------------------------------------------------------------
--- Addon: BloodlustPump
+-- Addon: BloodlustPumpbutBetter
 -- Author: Kasper der Pumper
 -- Twitch: https://www.twitch.tv/kasper7777
--- Version: 1.0.6777777
+-- Version: 6.7
 -------------------------------------------------------------------
 
 local addonName, addonTable = ...
-local addonPath = "Interface\\AddOns\\BloodlustPump\\"
+local addonPath = "Interface\\AddOns\\" .. addonName .. "\\"
 local soundPath = addonPath .. "Sounds\\"
 local imagePath = addonPath .. "Images\\"
 
@@ -22,8 +22,10 @@ local lastTriggerTime = 0
 local PUMP_COOLDOWN = 60
 local SPELL_SCAN_INTERVAL = 0.2
 local FRESH_SATED_MIN_REMAINING = 560
+local MUSIC_RETRY_INTERVAL = 1
 local hasFiredThisCombat = false
 local hadSatedLastCheck = false
+local nextMusicRetryTime = 0
 
 -- Sated-like debuff spell IDs (trigger appears immediately after lust is cast in modern retail)
 local SATED_DEBUFFS = {
@@ -36,18 +38,59 @@ local SATED_DEBUFFS = {
 -- PROFILE CONFIGURATION
 local pumperProfiles = {
     Ronnie = { 
-        tex = "pumping.blp", scream = "lightweightbaby.ogg", music = "lustmusic.ogg",
+        tex = "pumping.blp", scream = "lightweightbaby.mp3", music = "lustmusic.mp3",
         frames = 58, cols = 8, rows = 8, signature = "LIGHTWEIGHT BABY!", musicDelay = 10 
     },
     Arnold = { 
-        tex = "arnold.blp", scream = "voice_arnold.ogg", music = "arnoldmusic.ogg",
+        tex = "arnold.blp", scream = "voice_arnold.mp3", music = "arnoldmusic.mp3",
         frames = 64, cols = 8, rows = 8, signature = "STAY HUNGRY!", musicDelay = 7.6
         },
     Zyzz = { 
-        tex = "zyzz.blp", scream = "wereallgonnamakeitbrah.ogg", music = "zyzzmusic.ogg",
+        tex = "zyzz.blp", scream = "wereallgonnamakeitbrah.mp3", music = "zyzzmusic.mp3",
         frames = 64, cols = 8, rows = 8, signature = "U MIRIN BRO?", musicDelay = 2 
     }
 }
+
+local function StopCurrentMusic()
+    if musicHandle then
+        StopSound(musicHandle)
+        musicHandle = nil
+    end
+    nextMusicRetryTime = 0
+end
+
+local function StartProfileMusic()
+    if not BloodlustpumpDB or not BloodlustpumpDB.enableMusic then
+        musicHandle = nil
+        nextMusicRetryTime = 0
+        return false
+    end
+
+    local profile = pumperProfiles[BloodlustpumpDB.activeProfile]
+    local willPlay, newHandle = PlaySoundFile(soundPath..profile.music, BloodlustpumpDB.audioChannel)
+    musicHandle = newHandle
+    nextMusicRetryTime = GetTime() + MUSIC_RETRY_INTERVAL
+
+    return willPlay and newHandle ~= nil
+end
+
+local function QueueProfileAudio(profile)
+    StopCurrentMusic()
+
+    if BloodlustpumpDB.enableScream then
+        PlaySoundFile(soundPath..profile.scream, BloodlustpumpDB.audioChannel)
+        delayTimer = BloodlustpumpDB.enableMusic and profile.musicDelay or nil
+    elseif BloodlustpumpDB.enableMusic then
+        StartProfileMusic()
+        delayTimer = nil
+    else
+        delayTimer = nil
+    end
+end
+
+local function ShouldHaveMusicPlaying()
+    return BloodlustpumpDB and BloodlustpumpDB.enableMusic and not delayTimer and (isLustActive or isTesting)
+end
 
 -- INITIALIZE DATABASE
 local function InitDB(force)
@@ -151,14 +194,8 @@ local function CheckLustStatus()
         UpdateVisuals()
 
         local profile = pumperProfiles[BloodlustpumpDB.activeProfile]
-        
-        if BloodlustpumpDB.enableScream then 
-            PlaySoundFile(soundPath..profile.scream, BloodlustpumpDB.audioChannel)
-            delayTimer = profile.musicDelay
-        elseif BloodlustpumpDB.enableMusic then 
-            _, musicHandle = PlaySoundFile(soundPath..profile.music, BloodlustpumpDB.audioChannel)
-            delayTimer = nil 
-        end
+
+        QueueProfileAudio(profile)
     end
     
     hadSatedLastCheck = hasSated
@@ -192,10 +229,9 @@ local function CreateSettingsMenu()
         isTesting = not isTesting
         if isTesting then isMoving, currentFrame, lustDuration = false, 0, 40
             local profile = pumperProfiles[BloodlustpumpDB.activeProfile]
-            if BloodlustpumpDB.enableScream then PlaySoundFile(soundPath..profile.scream, BloodlustpumpDB.audioChannel); delayTimer = profile.musicDelay
-            elseif BloodlustpumpDB.enableMusic then _, musicHandle = PlaySoundFile(soundPath..profile.music, BloodlustpumpDB.audioChannel); delayTimer = nil end
+            QueueProfileAudio(profile)
             self:SetText("Stop")
-        else self:SetText("Test Motivation"); if musicHandle then StopSound(musicHandle); musicHandle = nil end; delayTimer = nil end
+        else self:SetText("Test Motivation"); StopCurrentMusic(); delayTimer = nil end
         UpdateVisuals()
     end)
 
@@ -421,7 +457,7 @@ core:SetScript("OnUpdate", function(self, elapsed)
             for _, f in ipairs(ronnieFrames) do if f then f.timerText:SetText(string.format("%.1f", lustDuration)) end end
             if lustDuration <= 0 and not isTesting then 
                 isLustActive = false
-                if musicHandle then StopSound(musicHandle); musicHandle = nil end
+                StopCurrentMusic()
                 UpdateVisuals()
             end
         end
@@ -431,10 +467,21 @@ core:SetScript("OnUpdate", function(self, elapsed)
         delayTimer = delayTimer - elapsed
         if delayTimer <= 0 then 
             if (isLustActive or isTesting) and BloodlustpumpDB.enableMusic then 
-                local profile = pumperProfiles[BloodlustpumpDB.activeProfile]
-                _, musicHandle = PlaySoundFile(soundPath..profile.music, BloodlustpumpDB.audioChannel) 
+                StartProfileMusic()
             end
             delayTimer = nil 
+        end
+    end
+
+    if ShouldHaveMusicPlaying() then
+        local isMusicPlaying = musicHandle and C_Sound and C_Sound.IsPlaying and C_Sound.IsPlaying(musicHandle)
+
+        if not isMusicPlaying then
+            musicHandle = nil
+
+            if GetTime() >= nextMusicRetryTime then
+                StartProfileMusic()
+            end
         end
     end
 end)
