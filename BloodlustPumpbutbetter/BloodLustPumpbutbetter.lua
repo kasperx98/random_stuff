@@ -51,6 +51,13 @@ local pumperProfiles = {
     }
 }
 
+-- Available music tracks (chosen independently of the legend)
+local musicTrackList = {
+    { label = "Ronnie - Pump Music",  file = "lustmusic.mp3"   },
+    { label = "Arnold - Pump Music", file = "arnoldmusic.mp3" },
+    { label = "Zyzz - Pump Music",   file = "zyzzmusic.mp3"   },
+}
+
 local function StopCurrentMusic()
     if musicHandle then
         StopSound(musicHandle)
@@ -67,7 +74,8 @@ local function StartProfileMusic()
     end
 
     local profile = pumperProfiles[BloodlustpumpDB.activeProfile]
-    local willPlay, newHandle = PlaySoundFile(soundPath..profile.music, BloodlustpumpDB.audioChannel)
+    local trackFile = BloodlustpumpDB.musicTrack or profile.music
+    local willPlay, newHandle = PlaySoundFile(soundPath..trackFile, BloodlustpumpDB.audioChannel)
     musicHandle = newHandle
     nextMusicRetryTime = GetTime() + MUSIC_RETRY_INTERVAL
 
@@ -107,6 +115,7 @@ local function InitDB(force)
     BloodlustpumpDB.audioChannel = BloodlustpumpDB.audioChannel or "Master"
     BloodlustpumpDB.enableScream = (BloodlustpumpDB.enableScream == nil) and true or BloodlustpumpDB.enableScream
     BloodlustpumpDB.enableMusic = (BloodlustpumpDB.enableMusic == nil) and true or BloodlustpumpDB.enableMusic
+    BloodlustpumpDB.musicTrack = BloodlustpumpDB.musicTrack or "lustmusic.mp3"
 end
 
 -- 2. VISUAL UPDATES
@@ -235,14 +244,20 @@ local function CreateSettingsMenu()
         UpdateVisuals()
     end)
 
-    local cbScream = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
-    cbScream.Text:SetText("Enable Voice")
+    local cbScream = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    cbScream:SetSize(24, 24)
+    cbScream.label = cbScream:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    cbScream.label:SetPoint("LEFT", cbScream, "RIGHT", 4, 0)
+    cbScream.label:SetText("Enable Voice")
     cbScream.tooltipText = "Play legend audio effects."
     cbScream:SetScript("OnClick", function(self) BloodlustpumpDB.enableScream = self:GetChecked() end)
     table.insert(refreshFunctions, function() cbScream:SetChecked(BloodlustpumpDB.enableScream) end)
 
-    local cbMusic = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
-    cbMusic.Text:SetText("Enable Music")
+    local cbMusic = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    cbMusic:SetSize(24, 24)
+    cbMusic.label = cbMusic:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    cbMusic.label:SetPoint("LEFT", cbMusic, "RIGHT", 4, 0)
+    cbMusic.label:SetText("Enable Music")
     cbMusic.tooltipText = "Play workout music during the pump duration."
     cbMusic:SetScript("OnClick", function(self) BloodlustpumpDB.enableMusic = self:GetChecked() end)
     table.insert(refreshFunctions, function() cbMusic:SetChecked(BloodlustpumpDB.enableMusic) end)
@@ -253,61 +268,83 @@ local function CreateSettingsMenu()
     local sectionProfiles = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     sectionProfiles:SetPoint("TOPLEFT", 20, rowY); sectionProfiles:SetText("CHOOSE YOUR LEGEND")
 
-    local profileDD = CreateFrame("Frame", "BLP_ProfileDD", panel, "UIDropDownMenuTemplate")
-    profileDD:SetPoint("TOPLEFT", sectionProfiles, "BOTTOMLEFT", -15, -2)
-    UIDropDownMenu_SetWidth(profileDD, 90)
-    UIDropDownMenu_Initialize(profileDD, function(self)
+    local profileDD = CreateFrame("DropdownButton", "BLP_ProfileDD", panel, "WowStyle1DropdownTemplate")
+    profileDD:SetPoint("TOPLEFT", sectionProfiles, "BOTTOMLEFT", 0, -5)
+    profileDD:SetSize(110, 24)
+    profileDD:SetupMenu(function(dd, rootDescription)
         for _, name in ipairs({"Ronnie", "Arnold", "Zyzz"}) do
-            local info = UIDropDownMenu_CreateInfo()
-            info.text, info.value, info.func = name, name, function(s) BloodlustpumpDB.activeProfile = s.value; UIDropDownMenu_SetText(profileDD, s.value); UpdateVisuals() end
-            info.checked = (name == BloodlustpumpDB.activeProfile); UIDropDownMenu_AddButton(info)
+            rootDescription:CreateRadio(name,
+                function() return BloodlustpumpDB.activeProfile == name end,
+                function() BloodlustpumpDB.activeProfile = name; UpdateVisuals() end)
         end
     end)
-    table.insert(refreshFunctions, function() UIDropDownMenu_SetText(profileDD, BloodlustpumpDB.activeProfile) end)
+    table.insert(refreshFunctions, function() profileDD:Update() end)
 
     -- 2. AUDIO CHANNEL DROPDOWN
     local sectionAudio = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     sectionAudio:SetPoint("LEFT", sectionProfiles, "LEFT", 135, 0); sectionAudio:SetText("AUDIO CHANNEL")
 
-    local dropdown = CreateFrame("Frame", "BLP_ChanDD", panel, "UIDropDownMenuTemplate")
-    dropdown:SetPoint("TOPLEFT", sectionAudio, "BOTTOMLEFT", -15, -2)
-    UIDropDownMenu_SetWidth(dropdown, 85)
-    UIDropDownMenu_Initialize(dropdown, function(self)
+    local dropdown = CreateFrame("DropdownButton", "BLP_ChanDD", panel, "WowStyle1DropdownTemplate")
+    dropdown:SetPoint("TOPLEFT", sectionAudio, "BOTTOMLEFT", 0, -5)
+    dropdown:SetSize(110, 24)
+    dropdown:SetupMenu(function(dd, rootDescription)
         for _, c in ipairs({"Master", "SFX", "Music", "Ambience", "Dialog"}) do
-            local info = UIDropDownMenu_CreateInfo()
-            info.text, info.value, info.func = c, c, function(s) BloodlustpumpDB.audioChannel = s.value; UIDropDownMenu_SetText(dropdown, s.value) end
-            info.checked = (c == BloodlustpumpDB.audioChannel); UIDropDownMenu_AddButton(info)
+            rootDescription:CreateRadio(c,
+                function() return BloodlustpumpDB.audioChannel == c end,
+                function() BloodlustpumpDB.audioChannel = c end)
         end
     end)
-    table.insert(refreshFunctions, function() UIDropDownMenu_SetText(dropdown, BloodlustpumpDB.audioChannel) end)
+    table.insert(refreshFunctions, function() dropdown:Update() end)
 
     -- 3. LAYOUT MODE DROPDOWN
     local sectionLayout = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    sectionLayout:SetPoint("LEFT", sectionAudio, "LEFT", 125, 0); sectionLayout:SetText("LAYOUT")
+    sectionLayout:SetPoint("LEFT", sectionAudio, "LEFT", 135, 0); sectionLayout:SetText("LAYOUT")
 
-    local layoutDD = CreateFrame("Frame", "BLP_LayoutDD", panel, "UIDropDownMenuTemplate")
-    layoutDD:SetPoint("TOPLEFT", sectionLayout, "BOTTOMLEFT", -15, -2)
-    UIDropDownMenu_SetWidth(layoutDD, 75)
-    UIDropDownMenu_Initialize(layoutDD, function(self)
+    local layoutDD = CreateFrame("DropdownButton", "BLP_LayoutDD", panel, "WowStyle1DropdownTemplate")
+    layoutDD:SetPoint("TOPLEFT", sectionLayout, "BOTTOMLEFT", 0, -5)
+    layoutDD:SetSize(90, 24)
+    layoutDD:SetupMenu(function(dd, rootDescription)
         for _, mode in ipairs({"Single", "Dual"}) do
-            local info = UIDropDownMenu_CreateInfo()
-            info.text, info.value, info.func = mode, mode, function(s) BloodlustpumpDB.layoutMode = s.value; UIDropDownMenu_SetText(layoutDD, s.value); for _, f in ipairs(refreshFunctions) do f() end; UpdateVisuals() end
-            info.checked = (mode == BloodlustpumpDB.layoutMode); UIDropDownMenu_AddButton(info)
+            rootDescription:CreateRadio(mode,
+                function() return BloodlustpumpDB.layoutMode == mode end,
+                function() BloodlustpumpDB.layoutMode = mode; for _, f in ipairs(refreshFunctions) do f() end; UpdateVisuals() end)
         end
     end)
-    table.insert(refreshFunctions, function() UIDropDownMenu_SetText(layoutDD, BloodlustpumpDB.layoutMode or "Dual") end)
+    table.insert(refreshFunctions, function() layoutDD:Update() end)
 
-    cbScream:SetPoint("TOPLEFT", profileDD, "BOTTOMLEFT", 20, -10)
+    -- 4. MUSIC TRACK DROPDOWN
+    local sectionTrack = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    sectionTrack:SetPoint("TOPLEFT", sectionProfiles, "LEFT", 0, -55); sectionTrack:SetText("MUSIC TRACK")
+
+    local trackDD = CreateFrame("DropdownButton", "BLP_TrackDD", panel, "WowStyle1DropdownTemplate")
+    trackDD:SetPoint("TOPLEFT", sectionTrack, "BOTTOMLEFT", 0, -5)
+    trackDD:SetSize(160, 24)
+    trackDD:SetupMenu(function(dd, rootDescription)
+        for _, t in ipairs(musicTrackList) do
+            rootDescription:CreateRadio(t.label,
+                function() return BloodlustpumpDB.musicTrack == t.file end,
+                function() BloodlustpumpDB.musicTrack = t.file end)
+        end
+    end)
+    table.insert(refreshFunctions, function() trackDD:Update() end)
+
+    cbScream:SetPoint("TOPLEFT", trackDD, "BOTTOMLEFT", 20, -10)
     cbMusic:SetPoint("TOPLEFT", cbScream, "TOPLEFT", 140, 0)
 
 
     local section2 = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-    section2:SetPoint("TOPLEFT", 20, btnY - 195); section2:SetText("VISUAL CALIBRATION")
+    section2:SetPoint("TOPLEFT", 20, btnY - 275); section2:SetText("VISUAL CALIBRATION")
 
     local function NewSlider(n, l, min, max, k, x, y, tip)
+        local sliderLbl = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+        sliderLbl:SetPoint("TOPLEFT", 20 + x, btnY - 297 + y)
+        sliderLbl:SetText(l)
+
         local s = CreateFrame("Slider", n, panel, "OptionsSliderTemplate")
-        s:SetPoint("TOPLEFT", 20 + x, btnY - 235 + y); s:SetMinMaxValues(min, max); s:SetObeyStepOnDrag(true); s:SetSize(180, 18); s.tooltipText = tip
-        
+        s:SetPoint("TOPLEFT", 20 + x, btnY - 315 + y); s:SetMinMaxValues(min, max); s:SetObeyStepOnDrag(true); s:SetSize(180, 18); s.tooltipText = tip
+        -- Clear the template's own label so our fontstring is the sole source of truth
+        local builtinLabel = _G[n .. 'Text']; if builtinLabel then builtinLabel:SetText("") end
+
         local isPrecision = (k == "opacity")
         s:SetValueStep(isPrecision and 0.1 or 1)
         
@@ -327,7 +364,7 @@ local function CreateSettingsMenu()
             if k == "distFromCenter" then
                 label = (BloodlustpumpDB.layoutMode == "Single") and "Horizontal Position" or "Frame Spacing"
             end
-            _G[s:GetName()..'Text']:SetText(label) 
+            sliderLbl:SetText(label)
         end)
     end
     
@@ -344,7 +381,7 @@ local function CreateSettingsMenu()
     local creditBtn = CreateFrame("Button", nil, panel)
     creditBtn:SetSize(320, 40); creditBtn:SetPoint("BOTTOMRIGHT", -20, 20)
     creditBtn.prefix = creditBtn:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    creditBtn.prefix:SetText("100% Vibecoded by"); creditBtn.prefix:SetTextColor(1, 0.82, 0, 0.7) 
+    creditBtn.prefix:SetText("67% Vibecoded by"); creditBtn.prefix:SetTextColor(1, 0.82, 0, 0.7) 
     creditBtn.name = creditBtn:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     creditBtn.name:SetText("Kasper"); creditBtn.name:SetTextColor(0.776, 0.608, 0.427); creditBtn.name:SetAlpha(0.7); creditBtn.name:SetPoint("RIGHT", creditBtn, "RIGHT")
     creditBtn.prefix:SetPoint("RIGHT", creditBtn.name, "LEFT", -5, 0)
@@ -366,7 +403,7 @@ core:RegisterEvent("PLAYER_ENTERING_WORLD")
 core:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" then 
         InitDB(); isLoggingIn = true; CreateSettingsMenu()
-        hadSatedLastCheck = select(1, HasSatedDebuff())
+        hadSatedLastCheck = HasSatedDebuff()
         C_Timer.After(5, function() isLoggingIn = false end)
         for i=1,2 do 
             local f = CreateFrame("Frame", "BLP_F"..i, UIParent); f:SetSize(400, 400); f:SetAlpha(0)
@@ -417,7 +454,7 @@ core:SetScript("OnEvent", function(self, event)
         end
         UpdateVisuals()
     elseif event == "PLAYER_ENTERING_WORLD" then
-        hadSatedLastCheck = select(1, HasSatedDebuff())
+        hadSatedLastCheck = HasSatedDebuff()
     elseif event == "PLAYER_REGEN_ENABLED" then
         hasFiredThisCombat = false
     end
@@ -449,7 +486,7 @@ core:SetScript("OnUpdate", function(self, elapsed)
             local y1, y2 = r * (1 / profile.rows), (r + 1) * (1 / profile.rows)
             for _, f in ipairs(ronnieFrames) do if f then f.tex:SetTexCoord(x1, x2, y1, y2) end end
             currentFrame = (currentFrame + 1) % profile.frames
-            animTimer = 0
+            animTimer = animTimer - frameRate
         end
 
         if not isMoving then
@@ -474,14 +511,12 @@ core:SetScript("OnUpdate", function(self, elapsed)
     end
 
     if ShouldHaveMusicPlaying() then
-        local isMusicPlaying = musicHandle and C_Sound and C_Sound.IsPlaying and C_Sound.IsPlaying(musicHandle)
-
-        if not isMusicPlaying then
-            musicHandle = nil
-
-            if GetTime() >= nextMusicRetryTime then
-                StartProfileMusic()
-            end
+        -- C_Sound.IsPlaying does not exist in the WoW API; musicHandle being set is
+        -- the only available proxy for "music is currently playing". If it is nil,
+        -- the sound either failed to start or was stopped externally — retry after
+        -- MUSIC_RETRY_INTERVAL to handle transient audio engine failures.
+        if not musicHandle and GetTime() >= nextMusicRetryTime then
+            StartProfileMusic()
         end
     end
 end)
