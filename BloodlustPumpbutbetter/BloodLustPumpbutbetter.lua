@@ -213,14 +213,14 @@ end
 -- 5. SETTINGS MENU
 local function CreateSettingsMenu()
     local panel = CreateFrame("Frame", "BloodlustpumpSettingsPanel", UIParent)
-    panel.name = "BloodlustPump"; local refreshFunctions = {}
+    panel.name = "BloodlustPumpbutBetter"; local refreshFunctions = {}
     
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalHuge")
-    title:SetPoint("TOPLEFT", 20, -25); title:SetText("BloodlustPump"); title:SetScale(1.5)
+    title:SetPoint("TOPLEFT", 20, -25); title:SetText("BloodlustPumpbutBetter"); title:SetScale(1.5)
 
     local subTitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightMedium")
     subTitle:SetPoint("LEFT", title, "RIGHT", 12, -2); subTitle:SetFont("Fonts\\FRIZQT__.TTF", 12)
-    subTitle:SetText("- Optimization for the Dedicated Pumper"); subTitle:SetTextColor(0.7, 0.7, 0.7)
+    subTitle:SetText("- Pump."); subTitle:SetTextColor(0.7, 0.7, 0.7)
 
     local line = panel:CreateTexture(nil, "ARTWORK")
     line:SetSize(580, 1); line:SetPoint("TOPLEFT", 20, -75); line:SetColorTexture(1, 1, 1, 0.1)
@@ -233,7 +233,7 @@ local function CreateSettingsMenu()
 
     local testBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     testBtn:SetSize(130, 26); testBtn:SetPoint("LEFT", moveBtn, "RIGHT", 10, 0); testBtn:SetText("Test Motivation")
-    testBtn.tooltipText = "Simulate a Haste spike to see the animation and hear the music."
+    testBtn.tooltipText = "Simulate the Pump."
     testBtn:SetScript("OnClick", function(self) 
         isTesting = not isTesting
         if isTesting then isMoving, currentFrame, lustDuration = false, 0, 40
@@ -368,10 +368,10 @@ local function CreateSettingsMenu()
         end)
     end
     
-    NewSlider("BLP_S", "Image Size", 100, 800, "size", 260, 0, "How big Ronnie/Arnold are.")
-    NewSlider("BLP_D", "Frame Spacing", -1200, 1200, "distFromCenter", 0, -45, "Horizontal movement.")
-    NewSlider("BLP_Y", "Vertical Height", -500, 500, "yPos", 260, -45, "Moves frames up or down.")
-    NewSlider("BLP_OP", "Opacity", 0, 1, "opacity", 0, -90, "Set transparency.")
+    NewSlider("BLP_D", "Frame Spacing",  -1200, 1200, "distFromCenter", 0,   0,   "Horizontal movement.")
+    NewSlider("BLP_S", "Image Size",      100,  800, "size",           260,  0,   "How big Ronnie/Arnold are.")
+    NewSlider("BLP_OP", "Opacity",         0,    1,  "opacity",          0, -45,  "Set transparency.")
+    NewSlider("BLP_Y", "Vertical Height", -500,  500, "yPos",           260, -45, "Moves frames up or down.")
 
     local resetAllBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     resetAllBtn:SetSize(105, 24); resetAllBtn:SetPoint("BOTTOMLEFT", 20, 28); resetAllBtn:SetText("Reset Defaults")
