@@ -39,7 +39,7 @@ local SATED_DEBUFFS = {
 local pumperProfiles = {
     Ronnie = { 
         tex = "pumping.blp", scream = "lightweightbaby.mp3", music = "lustmusic.mp3",
-        frames = 58, cols = 8, rows = 8, signature = "LIGHTWEIGHT BABY!", musicDelay = 10 
+        frames = 58, cols = 8, rows = 8, signature = "LIGHTWEIGHT BABY!", musicDelay = 4.5 
     },
     Arnold = { 
         tex = "arnold.blp", scream = "voice_arnold.mp3", music = "arnoldmusic.mp3",
